@@ -1,0 +1,372 @@
+{
+	"info": {
+		"_postman_id": "d5a9fe8c-74a4-40c6-8e3f-2a812e0cb77b",
+		"name": "Scheduler",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "21847123"
+	},
+	"item": [
+		{
+			"name": "Get All jobs",
+			"protocolProfileBehavior": {
+				"followRedirects": true,
+				"disableUrlEncoding": false,
+				"disableCookies": false
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "User-Agent",
+						"value": "insomnia/11.6.0"
+					}
+				],
+				"url": {
+					"raw": "http://127.0.0.1:8000/jobs",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"jobs"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "New Job",
+			"protocolProfileBehavior": {
+				"followRedirects": true,
+				"disableUrlEncoding": false,
+				"disableCookies": false
+			},
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "User-Agent",
+						"value": "insomnia/11.6.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Job {{ job_name }}\",\n  \"interval_seconds\": 5,\n  \"job_metadata\": {\n    \"multiplier\": {% randomnumber 1, 10000, 1, 0 %},\n    \"text\": \"Hello from Job {{ job_name }}\"\n  }\n}\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/jobs",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"jobs"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Edit Job",
+			"protocolProfileBehavior": {
+				"followRedirects": true,
+				"disableUrlEncoding": false,
+				"disableCookies": false
+			},
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "User-Agent",
+						"value": "insomnia/11.6.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Job {{ job_name }}\",\n  \"interval_seconds\": 5,\n  \"job_metadata\": {\n    \"multiplier\": {% randomnumber 1, 10000, 1, 0 %},\n    \"text\": \"Hello from Job {{ job_name }}\"\n  }\n}\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/jobs",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"jobs"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Replace Job",
+			"protocolProfileBehavior": {
+				"followRedirects": true,
+				"disableUrlEncoding": false,
+				"disableCookies": false
+			},
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "User-Agent",
+						"value": "insomnia/11.6.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Job {{job_name}}\",\n  \"interval_seconds\": 5,\n  \"job_metadata\": {\n    \"multiplier\": {{random_number}},\n    \"text\": \"Hello from Job {{job_name}}\"\n  },\n  \"status\":\"paused\"\n}\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/jobs/96e785ce-ceca-4187-86ae-21a26f3b03ba",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"jobs",
+						"96e785ce-ceca-4187-86ae-21a26f3b03ba"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get a Job",
+			"protocolProfileBehavior": {
+				"followRedirects": true,
+				"disableUrlEncoding": false,
+				"disableCookies": false
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "User-Agent",
+						"value": "insomnia/11.6.0"
+					}
+				],
+				"url": {
+					"raw": "http://127.0.0.1:8000/jobs/01b6a28e-4bb4-4614-82ac-e46eab308f5d",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"jobs",
+						"01b6a28e-4bb4-4614-82ac-e46eab308f5d"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Pause Job",
+			"protocolProfileBehavior": {
+				"followRedirects": true,
+				"disableUrlEncoding": false,
+				"disableCookies": false
+			},
+			"request": {
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "User-Agent",
+						"value": "insomnia/11.6.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"status\": \"paused\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/jobs/c8108cc6-10b3-492a-a5c9-ff6510034202",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"jobs",
+						"c8108cc6-10b3-492a-a5c9-ff6510034202"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Resume Job",
+			"protocolProfileBehavior": {
+				"followRedirects": true,
+				"disableUrlEncoding": false,
+				"disableCookies": false
+			},
+			"request": {
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "User-Agent",
+						"value": "insomnia/11.6.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"status\": \"active\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/jobs/c8108cc6-10b3-492a-a5c9-ff6510034202",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"jobs",
+						"c8108cc6-10b3-492a-a5c9-ff6510034202"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Job",
+			"protocolProfileBehavior": {
+				"followRedirects": true,
+				"disableUrlEncoding": false,
+				"disableCookies": false
+			},
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "User-Agent",
+						"value": "insomnia/11.6.0"
+					}
+				],
+				"url": {
+					"raw": "http://127.0.0.1:8000/jobs/01b6a28e-4bb4-4614-82ac-e46eab308f5d?confirm=true",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"jobs",
+						"01b6a28e-4bb4-4614-82ac-e46eab308f5d"
+					],
+					"query": [
+						{
+							"key": "confirm",
+							"value": "true"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete All Jobs",
+			"protocolProfileBehavior": {
+				"followRedirects": true,
+				"disableUrlEncoding": false,
+				"disableCookies": false
+			},
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "User-Agent",
+						"value": "insomnia/11.6.0"
+					}
+				],
+				"url": {
+					"raw": "http://127.0.0.1:8000/jobs?confirm=true",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"jobs"
+					],
+					"query": [
+						{
+							"key": "confirm",
+							"value": "true"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
