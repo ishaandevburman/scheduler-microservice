@@ -8,7 +8,7 @@ from app.core.jobs import dummy_number_crunch
 from app.core.logger import logger
 from app.core.scheduler import scheduler_manager
 from app.models.job import Job, JobStatus
-from app.schemas.job import JobCreate, JobUpdate
+from app.schemas.job import JobCreate, JobReplace, JobUpdate
 
 router = APIRouter()
 
@@ -51,7 +51,7 @@ def create_job(job_in: JobCreate, db: Session = Depends(get_db)):
         name=job_in.name,
         interval_seconds=job_in.interval_seconds,
         job_metadata=job_in.job_metadata,
-        status=JobStatus.ACTIVE,
+        status=job_in.status or JobStatus.ACTIVE,
     )
     db.add(job)
     db.commit()
@@ -73,7 +73,7 @@ def create_job(job_in: JobCreate, db: Session = Depends(get_db)):
     description="Completely replace a job definition. "
                 "All fields must be provided. Missing fields will be reset."
 )
-def replace_job(job_id: str, job_in: JobCreate, db: Session = Depends(get_db)):
+def replace_job(job_id: str, job_in: JobReplace, db: Session = Depends(get_db)):
     try:
         job_uuid = uuid.UUID(job_id)
     except ValueError:
@@ -87,15 +87,20 @@ def replace_job(job_id: str, job_in: JobCreate, db: Session = Depends(get_db)):
     job.name = job_in.name
     job.interval_seconds = job_in.interval_seconds
     job.job_metadata = job_in.job_metadata
-    job.status = JobStatus.ACTIVE
+    job.status = job_in.status
     db.commit()
 
-    # Reschedule
-    scheduler_manager.add_job(
-        job=job,
-        func=dummy_number_crunch,
-        kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
-    )
+    # Reschedule only if active
+    if job.status == JobStatus.ACTIVE:
+        scheduler_manager.add_job(
+            job=job,
+            func=dummy_number_crunch,
+            kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
+        )
+    else:
+        # Remove if exists
+        if scheduler_manager.scheduler.get_job(str(job.id)):
+            scheduler_manager.scheduler.remove_job(str(job.id))
     return job
 
 
