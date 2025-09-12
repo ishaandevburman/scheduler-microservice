@@ -140,62 +140,6 @@ def patch_job(job_id: str, job_in: JobUpdate, db: Session = Depends(get_db)):
 
     return job
 
-
-@router.post(
-    "/jobs/{job_id}/pause",
-    summary="Pause a job",
-    description="Temporarily pause a job. "
-                "The job will remain in the database but will not execute until resumed."
-)
-def pause_job(job_id: str, db: Session = Depends(get_db)):
-    try:
-        job_uuid = uuid.UUID(job_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid job ID format")
-
-    job = db.query(Job).filter(Job.id == job_uuid).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    job.status = JobStatus.PAUSED
-    db.commit()
-
-    # Remove from scheduler
-    if scheduler_manager.scheduler.get_job(job_id):
-        scheduler_manager.scheduler.remove_job(job_id)
-
-    return {"message": f"Job {job_id} paused"}
-
-
-@router.post(
-    "/jobs/{job_id}/resume",
-    summary="Resume a job",
-    description="Reactivate a paused or inactive job. "
-                "The job will be rescheduled and continue running at its defined interval."
-)
-def resume_job(job_id: str, db: Session = Depends(get_db)):
-    try:
-        job_uuid = uuid.UUID(job_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid job ID format")
-
-    job = db.query(Job).filter(Job.id == job_uuid).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    job.status = JobStatus.ACTIVE
-    db.commit()
-
-    # Reschedule
-    scheduler_manager.add_job(
-        job=job,
-        func=dummy_number_crunch,
-        kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
-    )
-
-    return {"message": f"Job {job_id} resumed"}
-
-
 @router.delete(
     "/jobs/{job_id}",
     summary="Delete a single job",
