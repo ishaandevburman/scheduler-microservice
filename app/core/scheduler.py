@@ -13,7 +13,7 @@ class SchedulerManager:
     def __init__(self, db_engine):
         jobstores = {"default": SQLAlchemyJobStore(engine=db_engine)}
         self.scheduler = BackgroundScheduler(
-            jobstores=jobstores, job_defaults=settings.SCHEDULER_JOB_DEFAULTS , executors = settings.EXECUTORS
+            jobstores=jobstores, job_defaults=settings.SCHEDULER_JOB_DEFAULTS
         )
         self.scheduler.start()
         safe_log("Scheduler started")
