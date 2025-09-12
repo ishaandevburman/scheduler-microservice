@@ -1,8 +1,6 @@
 import uuid
-from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -10,32 +8,44 @@ from app.core.jobs import dummy_number_crunch
 from app.core.logger import logger
 from app.core.scheduler import scheduler_manager
 from app.models.job import Job, JobStatus
+from app.schemas.job import JobCreate, JobUpdate
 
 router = APIRouter()
 
 
-# --------------------------
-# Pydantic Schemas
-# --------------------------
-class JobCreate(BaseModel):
-    name: str
-    interval_seconds: int
-    job_metadata: Optional[Dict] = {}
+@router.get(
+    "/jobs",
+    summary="List all jobs",
+    description="Returns a list of all scheduled jobs including their details such as name, interval, status, and metadata."
+)
+def list_jobs(db: Session = Depends(get_db)):
+    jobs = db.query(Job).all()
+    return jobs
 
 
-class JobUpdate(BaseModel):
-    name: Optional[str]
-    interval_seconds: Optional[int]
-    job_metadata: Optional[Dict]
-    status: Optional[JobStatus]
+@router.get(
+    "/jobs/{job_id}",
+    summary="Get job details",
+    description="Fetch details of a specific job by its UUID. Includes scheduling information and metadata."
+)
+def get_job(job_id: str, db: Session = Depends(get_db)):
+    try:
+        job_uuid = uuid.UUID(job_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid job ID format")
+
+    job = db.query(Job).filter(Job.id == job_uuid).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
 
 
-# --------------------------
-# API Endpoints
-# --------------------------
-
-
-@router.post("/jobs")
+@router.post(
+    "/jobs",
+    summary="Create a new job",
+    description="Create a new job with a name, interval, metadata, and status. "
+                "Jobs are scheduled immediately if set to `active`."
+)
 def create_job(job_in: JobCreate, db: Session = Depends(get_db)):
     job = Job(
         name=job_in.name,
@@ -57,26 +67,12 @@ def create_job(job_in: JobCreate, db: Session = Depends(get_db)):
     return job
 
 
-@router.get("/jobs")
-def list_jobs(db: Session = Depends(get_db)):
-    jobs = db.query(Job).all()
-    return jobs
-
-
-@router.get("/jobs/{job_id}")
-def get_job(job_id: str, db: Session = Depends(get_db)):
-    try:
-        job_uuid = uuid.UUID(job_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid job ID format")
-
-    job = db.query(Job).filter(Job.id == job_uuid).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return job
-
-
-@router.put("/jobs/{job_id}")
+@router.put(
+    "/jobs/{job_id}",
+    summary="Replace a job",
+    description="Completely replace a job definition. "
+                "All fields must be provided. Missing fields will be reset."
+)
 def replace_job(job_id: str, job_in: JobCreate, db: Session = Depends(get_db)):
     try:
         job_uuid = uuid.UUID(job_id)
@@ -103,7 +99,12 @@ def replace_job(job_id: str, job_in: JobCreate, db: Session = Depends(get_db)):
     return job
 
 
-@router.patch("/jobs/{job_id}")
+@router.patch(
+    "/jobs/{job_id}",
+    summary="Update job (partial)",
+    description="Update one or more fields of a job (e.g., name, interval, metadata, status). "
+                "Fields not provided remain unchanged."
+)
 def patch_job(job_id: str, job_in: JobUpdate, db: Session = Depends(get_db)):
     try:
         job_uuid = uuid.UUID(job_id)
@@ -140,7 +141,12 @@ def patch_job(job_id: str, job_in: JobUpdate, db: Session = Depends(get_db)):
     return job
 
 
-@router.post("/jobs/{job_id}/pause")
+@router.post(
+    "/jobs/{job_id}/pause",
+    summary="Pause a job",
+    description="Temporarily pause a job. "
+                "The job will remain in the database but will not execute until resumed."
+)
 def pause_job(job_id: str, db: Session = Depends(get_db)):
     try:
         job_uuid = uuid.UUID(job_id)
@@ -161,7 +167,12 @@ def pause_job(job_id: str, db: Session = Depends(get_db)):
     return {"message": f"Job {job_id} paused"}
 
 
-@router.post("/jobs/{job_id}/resume")
+@router.post(
+    "/jobs/{job_id}/resume",
+    summary="Resume a job",
+    description="Reactivate a paused or inactive job. "
+                "The job will be rescheduled and continue running at its defined interval."
+)
 def resume_job(job_id: str, db: Session = Depends(get_db)):
     try:
         job_uuid = uuid.UUID(job_id)
@@ -185,7 +196,13 @@ def resume_job(job_id: str, db: Session = Depends(get_db)):
     return {"message": f"Job {job_id} resumed"}
 
 
-@router.delete("/jobs/{job_id}")
+@router.delete(
+    "/jobs/{job_id}",
+    summary="Delete a single job",
+    description="⚠️ Permanently delete a single job by UUID. "
+                "Removes it from both the database and the scheduler. "
+                "Requires `?confirm=true` query parameter."
+)
 def delete_job(
     job_id: str,
     confirm: bool = Query(
@@ -220,7 +237,13 @@ def delete_job(
     return {"message": f"Job {job_id} deleted successfully"}
 
 
-@router.delete("/jobs")
+@router.delete(
+    "/jobs",
+    summary="Delete all jobs",
+    description="⚠️ Permanently delete **all jobs** from the system. "
+                "Removes them from both the database and the scheduler. "
+                "Requires `?confirm=true` query parameter."
+)
 def delete_all_jobs(
     confirm: bool = Query(
         default=False, description="Set to true to confirm deletion of ALL jobs"
