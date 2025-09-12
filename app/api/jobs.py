@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.jobs import dummy_number_crunch
-from app.core.logger import logger
+from app.core.logger import logger, safe_log
 from app.core.scheduler import scheduler_manager
 from app.models.job import Job, JobStatus
 from app.schemas.job import JobCreate, JobReplace, JobUpdate
@@ -63,7 +63,7 @@ def create_job(job_in: JobCreate, db: Session = Depends(get_db)):
         func=dummy_number_crunch,
         kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
     )
-    logger.info(f"Job {job.id} created and scheduled")
+    safe_log(f"Job {job.id} created and scheduled")
     return job
 
 

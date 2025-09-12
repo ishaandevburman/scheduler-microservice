@@ -1,10 +1,11 @@
+import logging
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.core.config import settings
 from app.core.database import engine
 from app.core.jobs import dummy_number_crunch
-from app.core.logger import logger
+from app.core.logger import logger, safe_log
 from app.models.job import Job, JobStatus
 
 
@@ -12,15 +13,15 @@ class SchedulerManager:
     def __init__(self, db_engine):
         jobstores = {"default": SQLAlchemyJobStore(engine=db_engine)}
         self.scheduler = BackgroundScheduler(
-            jobstores=jobstores, job_defaults=settings.SCHEDULER_JOB_DEFAULTS
+            jobstores=jobstores, job_defaults=settings.SCHEDULER_JOB_DEFAULTS , executors = settings.EXECUTORS
         )
         self.scheduler.start()
-        logger.info("Scheduler started")
+        safe_log("Scheduler started")
 
     def add_job(self, job, func, **kwargs):
         """Add a job to the scheduler (interval-only)."""
         if job.status != JobStatus.ACTIVE:
-            logger.info(f"Job {job.id} not active, skipping scheduling")
+            safe_log(f"Job {job.id} not active, skipping scheduling")
             return
 
         job_id_str = str(job.id)
@@ -28,7 +29,7 @@ class SchedulerManager:
         # Remove existing job if it exists
         existing_job = self.scheduler.get_job(job_id_str)
         if existing_job:
-            logger.info(
+            safe_log(
                 f"Job {job_id_str} already exists. Removing old job before scheduling."
             )
             self.scheduler.remove_job(job_id_str)
@@ -40,7 +41,7 @@ class SchedulerManager:
             seconds=job.interval_seconds,
             **kwargs,
         )
-        logger.info(f"Scheduled job {job.id} every {job.interval_seconds} seconds")
+        safe_log(f"Scheduled job {job.id} every {job.interval_seconds} seconds")
 
     def load_existing_jobs(self, db_session):
         """Load and schedule existing active jobs from DB on startup."""

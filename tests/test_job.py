@@ -1,6 +1,8 @@
 import uuid
+
 import pytest
 from fastapi.testclient import TestClient
+
 from app.main import app
 from app.models.job import JobStatus
 
