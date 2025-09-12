@@ -1,15 +1,16 @@
-from pydantic_settings import BaseSettings
 import os
 
+from pydantic import ConfigDict
+from pydantic_settings import BaseSettings
+
+
 class Settings(BaseSettings):
+    model_config = ConfigDict(env_file=".env")
     ENV: str = "development"  # "development" or "production"
     DATABASE_URL: str = "sqlite:///./scheduler.db"
     LOG_LEVEL: str = "DEBUG"
     SCHEDULER_JOB_DEFAULTS: dict = {"coalesce": True, "max_instances": 1}
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 settings = Settings()
 
