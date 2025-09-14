@@ -21,7 +21,7 @@ class JobCreate(BaseModel):
         interval = values.get("interval_seconds") is not None
         cron = values.get("cron_expression") is not None
 
-        # Both True or both False → invalid
+        # Both True or both False -> invalid
         if interval == cron:
             raise ValueError(
                 "Exactly one of 'interval_seconds' or 'cron_expression' must be provided"

@@ -1,10 +1,10 @@
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-import logging
 from sqlalchemy import JSON, CheckConstraint, Column, DateTime
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy import Integer, String

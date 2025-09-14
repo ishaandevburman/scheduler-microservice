@@ -1,6 +1,6 @@
-import app.jobs.builtin
 from fastapi import FastAPI
 
+import app.jobs.builtin
 from app.api import jobs
 from app.core.database import SessionLocal, engine
 from app.core.scheduler import scheduler_manager

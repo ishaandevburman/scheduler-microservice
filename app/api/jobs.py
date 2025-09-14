@@ -172,7 +172,7 @@ def patch_job(job_id: str, job_in: JobUpdate, db: Session = Depends(get_db)):
 @router.delete(
     "/jobs/{job_id}",
     summary="Delete a single job",
-    description="⚠️ Permanently delete a single job by UUID. "
+    description=" Permanently delete a single job by UUID. "
                 "Removes it from both the database and the scheduler. "
                 "Requires `?confirm=true` query parameter."
 )
@@ -200,7 +200,7 @@ def delete_job(job_id: str, confirm: bool = Query(False), db: Session = Depends(
 @router.delete(
     "/jobs",
     summary="Delete all jobs",
-    description="⚠️ Permanently delete **all jobs** from the system. "
+    description=" Permanently delete **all jobs** from the system. "
                 "Removes them from both the database and the scheduler. "
                 "Requires `?confirm=true` query parameter."
 )
@@ -209,7 +209,6 @@ def delete_all_jobs(confirm: bool = Query(False), db: Session = Depends(get_db))
         raise HTTPException(status_code=400, detail="Confirmation required (?confirm=true)")
 
     scheduler_manager.scheduler.remove_all_jobs()
-    db.query(Job).delete()
     deleted_count = db.query(Job).delete()
     db.commit()
     safe_log(f"All jobs deleted (including paused ones). Total: {deleted_count}")

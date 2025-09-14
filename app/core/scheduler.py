@@ -1,6 +1,7 @@
+import logging
+
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
-import logging
 
 from app.core.config import settings
 from app.core.database import engine

@@ -190,7 +190,7 @@ def test_delete_cron_job(create_cron_job_payload):
     create_resp = client.post("/jobs", json=create_cron_job_payload)
     job_id = create_resp.json()["id"]
 
-    # Delete without confirmation → fail
+    # Delete without confirmation -> fail
     response = client.delete(f"/jobs/{job_id}")
     assert response.status_code == 400
 
@@ -235,12 +235,12 @@ def test_delete_all_jobs(create_job_payload, create_cron_job_payload):
     jobs = response.json()
     assert len(jobs) == 6  # 2 interval + 2 cron
 
-    # Attempt delete without confirmation → should fail
+    # Attempt delete without confirmation -> should fail
     response = client.delete("/jobs")
     assert response.status_code == 400
     assert "Confirmation required" in response.json()["detail"]
 
-    # Delete all with confirmation → should succeed
+    # Delete all with confirmation -> should succeed
     response = client.delete("/jobs?confirm=true")
     assert response.status_code == 200
     assert "All jobs deleted successfully" in response.json()["message"]
