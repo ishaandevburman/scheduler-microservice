@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.jobs import dummy_number_crunch
-from app.core.logger import logger, safe_log
+from app.core.logger import safe_log
 from app.core.scheduler import scheduler_manager
 from app.models.job import Job, JobStatus
 from app.schemas.job import JobCreate, JobUpdate
@@ -19,8 +19,7 @@ router = APIRouter()
     description="Returns a list of all scheduled jobs including their details such as name, interval, status, and metadata."
 )
 def list_jobs(db: Session = Depends(get_db)):
-    jobs = db.query(Job).all()
-    return jobs
+    return db.query(Job).all()
 
 
 @router.get(
@@ -50,6 +49,7 @@ def create_job(job_in: JobCreate, db: Session = Depends(get_db)):
     job = Job(
         name=job_in.name,
         interval_seconds=job_in.interval_seconds,
+        cron_expression=job_in.cron_expression,
         job_metadata=job_in.job_metadata,
         status=job_in.status or JobStatus.ACTIVE,
     )
@@ -57,7 +57,6 @@ def create_job(job_in: JobCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(job)
 
-    # Schedule the job
     if job.status == JobStatus.ACTIVE:
         scheduler_manager.add_job(
             job=job,
@@ -66,8 +65,7 @@ def create_job(job_in: JobCreate, db: Session = Depends(get_db)):
         )
         safe_log(f"Job {job.id} created and scheduled")
     else:
-        safe_log(f"Job {job.id} not active, skipping scheduling of job")
-
+        safe_log(f"Job {job.id} created but not active, skipping scheduling")
     return job
 
 
@@ -82,14 +80,14 @@ def replace_job(job_id: str, job_in: JobCreate, db: Session = Depends(get_db)):
         job_uuid = uuid.UUID(job_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
-
     job = db.query(Job).filter(Job.id == job_uuid).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Update all fields
+    # Replace all fields
     job.name = job_in.name
     job.interval_seconds = job_in.interval_seconds
+    job.cron_expression = job_in.cron_expression
     job.job_metadata = job_in.job_metadata
     job.status = job_in.status
     db.commit()
@@ -106,7 +104,7 @@ def replace_job(job_id: str, job_in: JobCreate, db: Session = Depends(get_db)):
         )
         safe_log(f"Job {job.id} replaced and scheduled")
     else:
-        safe_log(f"Job {job.id} not active, skipping scheduling of replaced job")
+        safe_log(f"Job {job.id} replaced but not active, skipping scheduling")
     return job
 
 
@@ -121,7 +119,6 @@ def patch_job(job_id: str, job_in: JobUpdate, db: Session = Depends(get_db)):
         job_uuid = uuid.UUID(job_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
-
     job = db.query(Job).filter(Job.id == job_uuid).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -131,10 +128,15 @@ def patch_job(job_id: str, job_in: JobUpdate, db: Session = Depends(get_db)):
         job.name = job_in.name
     if job_in.interval_seconds is not None:
         job.interval_seconds = job_in.interval_seconds
+        job.cron_expression = None
+    if job_in.cron_expression is not None:
+        job.cron_expression = job_in.cron_expression
+        job.interval_seconds = None
     if job_in.job_metadata is not None:
         job.job_metadata = job_in.job_metadata
     if job_in.status is not None:
         job.status = job_in.status
+
     db.commit()
     
     scheduler_manager.remove_existing_job(job)
@@ -149,9 +151,9 @@ def patch_job(job_id: str, job_in: JobUpdate, db: Session = Depends(get_db)):
         )
         safe_log(f"Job {job.id} updated and scheduled")
     else:
-        safe_log(f"Job {job.id} not active, skipping scheduling of updated job")
-
+        safe_log(f"Job {job.id} updated but not active, skipping scheduling")
     return job
+
 
 @router.delete(
     "/jobs/{job_id}",
@@ -160,13 +162,7 @@ def patch_job(job_id: str, job_in: JobUpdate, db: Session = Depends(get_db)):
                 "Removes it from both the database and the scheduler. "
                 "Requires `?confirm=true` query parameter."
 )
-def delete_job(
-    job_id: str,
-    confirm: bool = Query(
-        default=False, description="Set to true to confirm deletion of this job"
-    ),
-    db: Session = Depends(get_db),
-):
+def delete_job(job_id: str, confirm: bool = Query(False), db: Session = Depends(get_db)):
     if not confirm:
         raise HTTPException(
             status_code=400,
@@ -177,17 +173,13 @@ def delete_job(
         job_uuid = uuid.UUID(job_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
-
     job = db.query(Job).filter(Job.id == job_uuid).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    
-    scheduler_manager.remove_existing_job(job)
 
-    # Remove from DB
+    scheduler_manager.remove_existing_job(job)
     db.delete(job)
     db.commit()
-
     return {"message": f"Job {job_id} deleted successfully"}
 
 
@@ -198,26 +190,13 @@ def delete_job(
                 "Removes them from both the database and the scheduler. "
                 "Requires `?confirm=true` query parameter."
 )
-def delete_all_jobs(
-    confirm: bool = Query(
-        default=False, description="Set to true to confirm deletion of ALL jobs"
-    ),
-    db: Session = Depends(get_db),
-):
+def delete_all_jobs(confirm: bool = Query(False), db: Session = Depends(get_db)):
     if not confirm:
-        raise HTTPException(
-            status_code=400,
-            detail="Confirmation required. Use ?confirm=true to delete all jobs.",
-        )
+        raise HTTPException(status_code=400, detail="Confirmation required (?confirm=true)")
 
     jobs = db.query(Job).all()
     for job in jobs:
-        job_id_str = str(job.id)
-
         scheduler_manager.remove_existing_job(job)
-
-        # Remove from DB
         db.delete(job)
-
     db.commit()
     return {"message": "All jobs deleted successfully"}
