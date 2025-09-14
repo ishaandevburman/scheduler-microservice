@@ -16,15 +16,17 @@ client = TestClient(app)
 def create_job_payload():
     return {
         "name": "Test Job",
+        "function_name": "print_hello",
         "interval_seconds": 5,
         "job_metadata": {"multiplier": 10, "text": "hello"},
         "status": "active"
     }
-    
+
 @pytest.fixture
 def create_cron_job_payload():
     return {
         "name": "Cron Test Job",
+        "function_name": "dummy_number_crunch",
         "cron_expression": "*/5 * * * *",  # every 5 minutes
         "job_metadata": {"multiplier": 10, "text": "cron"},
         "status": "active"
@@ -78,6 +80,7 @@ def test_put_job_full_update(create_job_payload):
     put_payload = {
         "name": "Updated Job",
         "interval_seconds": 10,
+        "function_name":"dummy_number_crunch",
         "job_metadata": {"multiplier": 99, "text": "updated"},
         "status": "paused"
     }
@@ -156,6 +159,7 @@ def test_put_cron_job_full_update(create_cron_job_payload):
 
     put_payload = {
         "name": "Updated Cron Job",
+        "function_name":"print_hello",
         "cron_expression": "0 0 * * MON",  # every Monday at midnight
         "job_metadata": {"multiplier": 99, "text": "updated"},
         "status": "paused"
@@ -218,12 +222,18 @@ def test_delete_all_jobs(create_job_payload, create_cron_job_payload):
         payload = create_cron_job_payload.copy()
         payload["name"] = f"Cron Job {i}"
         client.post("/jobs", json=payload)
+        
+    for i in range(2):
+        paused_job = create_job_payload.copy()
+        paused_job["status"] = "paused"
+        client.post("/jobs", json=paused_job)
+
 
     # Verify jobs exist
     response = client.get("/jobs")
     assert response.status_code == 200
     jobs = response.json()
-    assert len(jobs) == 4  # 2 interval + 2 cron
+    assert len(jobs) == 6  # 2 interval + 2 cron
 
     # Attempt delete without confirmation → should fail
     response = client.delete("/jobs")

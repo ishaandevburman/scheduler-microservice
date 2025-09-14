@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.jobs import dummy_number_crunch
 from app.core.logger import safe_log
 from app.core.scheduler import scheduler_manager
+from app.jobs.registry import JOB_REGISTRY
 from app.models.job import Job, JobStatus
 from app.schemas.job import JobCreate, JobUpdate
 
@@ -48,21 +48,27 @@ def get_job(job_id: str, db: Session = Depends(get_db)):
 def create_job(job_in: JobCreate, db: Session = Depends(get_db)):
     job = Job(
         name=job_in.name,
+        function_name=job_in.function_name,
         interval_seconds=job_in.interval_seconds,
         cron_expression=job_in.cron_expression,
         job_metadata=job_in.job_metadata,
         status=job_in.status or JobStatus.ACTIVE,
     )
+    
+    func = JOB_REGISTRY.get(job.function_name)
+    if not func:
+        raise HTTPException(status_code=400, detail=f"Unknown function {job.function_name}")
+
     db.add(job)
     db.commit()
     db.refresh(job)
+    
+    trigger = job.get_trigger()
+    if not trigger:
+        raise HTTPException(status_code=400, detail="Invalid schedule")
 
     if job.status == JobStatus.ACTIVE:
-        scheduler_manager.add_job(
-            job=job,
-            func=dummy_number_crunch,
-            kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
-        )
+        scheduler_manager.add_job(job=job)
         safe_log(f"Job {job.id} created and scheduled")
     else:
         safe_log(f"Job {job.id} created but not active, skipping scheduling")
@@ -86,22 +92,26 @@ def replace_job(job_id: str, job_in: JobCreate, db: Session = Depends(get_db)):
 
     # Replace all fields
     job.name = job_in.name
+    job.function_name=job_in.function_name
     job.interval_seconds = job_in.interval_seconds
     job.cron_expression = job_in.cron_expression
     job.job_metadata = job_in.job_metadata
     job.status = job_in.status
-    db.commit()
+    
+    func = JOB_REGISTRY.get(job.function_name)
+    if not func:
+        raise HTTPException(status_code=400, detail=f"Unknown function {job.function_name}")
+
+    trigger = job.get_trigger()
+    if not trigger:
+        raise HTTPException(status_code=400, detail="Invalid schedule")
 
     scheduler_manager.remove_existing_job(job)
+    db.commit()
 
     # Reschedule only if active
-    # Schedule the job
     if job.status == JobStatus.ACTIVE:
-        scheduler_manager.add_job(
-            job=job,
-            func=dummy_number_crunch,
-            kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
-        )
+        scheduler_manager.add_job(job=job)
         safe_log(f"Job {job.id} replaced and scheduled")
     else:
         safe_log(f"Job {job.id} replaced but not active, skipping scheduling")
@@ -126,6 +136,8 @@ def patch_job(job_id: str, job_in: JobUpdate, db: Session = Depends(get_db)):
     # Update only provided fields
     if job_in.name is not None:
         job.name = job_in.name
+    if job_in.function_name is not None:
+        job.function_name = job_in.function_name
     if job_in.interval_seconds is not None:
         job.interval_seconds = job_in.interval_seconds
         job.cron_expression = None
@@ -136,19 +148,21 @@ def patch_job(job_id: str, job_in: JobUpdate, db: Session = Depends(get_db)):
         job.job_metadata = job_in.job_metadata
     if job_in.status is not None:
         job.status = job_in.status
-
-    db.commit()
+        
+    func = JOB_REGISTRY.get(job.function_name)
+    if not func:
+        raise HTTPException(status_code=400, detail=f"Unknown function {job.function_name}")
+        
+    trigger = job.get_trigger()
+    if not trigger:
+        raise HTTPException(status_code=400, detail="Invalid schedule")
     
     scheduler_manager.remove_existing_job(job)
-
+    db.commit()
+    
     # Reschedule if active
-    # Schedule the job
     if job.status == JobStatus.ACTIVE:
-        scheduler_manager.add_job(
-            job=job,
-            func=dummy_number_crunch,
-            kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
-        )
+        scheduler_manager.add_job(job=job)
         safe_log(f"Job {job.id} updated and scheduled")
     else:
         safe_log(f"Job {job.id} updated but not active, skipping scheduling")
@@ -194,9 +208,9 @@ def delete_all_jobs(confirm: bool = Query(False), db: Session = Depends(get_db))
     if not confirm:
         raise HTTPException(status_code=400, detail="Confirmation required (?confirm=true)")
 
-    jobs = db.query(Job).all()
-    for job in jobs:
-        scheduler_manager.remove_existing_job(job)
-        db.delete(job)
+    scheduler_manager.scheduler.remove_all_jobs()
+    db.query(Job).delete()
+    deleted_count = db.query(Job).delete()
     db.commit()
-    return {"message": "All jobs deleted successfully"}
+    safe_log(f"All jobs deleted (including paused ones). Total: {deleted_count}")
+    return {"message": f"All jobs deleted successfully", "deleted_count": deleted_count}

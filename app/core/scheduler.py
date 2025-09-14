@@ -1,12 +1,11 @@
-import logging
-
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
+import logging
 
 from app.core.config import settings
 from app.core.database import engine
-from app.core.jobs import dummy_number_crunch
-from app.core.logger import logger, safe_log
+from app.core.logger import safe_log
+from app.jobs.registry import JOB_REGISTRY
 from app.models.job import Job, JobStatus
 
 
@@ -18,52 +17,62 @@ class SchedulerManager:
         )
         self.scheduler.start()
         safe_log("Scheduler started")
+        safe_log(f"Loaded functions {JOB_REGISTRY}")
 
-    def add_job(self, job: Job, func, **kwargs):
-        """Schedule a job (interval or cron) based on Job model."""
+    def add_job(self, job: Job):
         trigger = job.get_trigger()
         if not trigger:
             safe_log(f"Job {job.id} has no valid schedule. Skipping.")
             return
-        
+
         if job.next_run_at is None:
             safe_log(f"Job {job.id} has no computed next_run_at. Skipping.")
             return
 
-        # Schedule the job
-        self.scheduler.add_job(
-            func=func,
-            trigger=trigger,
-            id=str(job.id),
-            **kwargs,
-        )
+        func = JOB_REGISTRY.get(job.function_name)
+        if not func:
+            safe_log(
+                f"Job {job.id} has unknown function '{job.function_name}'. Skipping.",
+                level=logging.ERROR,  # fixed logging level issue
+            )
+            return
 
-        safe_log(
-            f"Scheduled job {job.id} "
-            f"({'interval' if job.interval_seconds else 'cron'})"
-        )
+        try:
+            self.scheduler.add_job(
+                func,
+                trigger=trigger,
+                id=str(job.id),
+                kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
+            )
+            safe_log(
+                f"Scheduled job {job.id} "
+                f"({'interval' if job.interval_seconds else 'cron'}) "
+                f"with function '{job.function_name}'"
+            )
+        except Exception as e:
+            safe_log(f"Failed to schedule job {job.id}: {e}", level=logging.ERROR)
 
     def load_existing_jobs(self, db_session):
         """Load and schedule existing active jobs from DB on startup."""
         jobs = db_session.query(Job).filter(Job.status == JobStatus.ACTIVE).all()
         for job in jobs:
-            self.add_job(
-                job,
-                func=dummy_number_crunch,
-                kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
-            )
-    
-    def remove_existing_job(self, job):
-        job_id_str = str(job.id)
+            try:
+                self.add_job(job)
+            except Exception as e:
+                safe_log(f"Failed to load job {job.id}: {e}", level=logging.ERROR)
 
-        # Remove existing job if it exists
+    def remove_existing_job(self, job: Job):
+        """Remove a job from scheduler if it already exists."""
+        job_id_str = str(job.id)
         existing_job = self.scheduler.get_job(job_id_str)
         if existing_job:
             safe_log(
-                f"Job {job_id_str} already exists. Removing old job before scheduling."
+                f"Job {job_id_str} already exists. Removing old job before rescheduling."
             )
-            self.scheduler.remove_job(job_id_str)
-
+            try:
+                self.scheduler.remove_job(job_id_str)
+            except Exception as e:
+                safe_log(f"Failed to remove existing job {job_id_str}: {e}", level=logging.ERROR)
 
 
 # Singleton instance for global use

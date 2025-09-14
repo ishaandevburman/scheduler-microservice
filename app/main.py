@@ -1,3 +1,4 @@
+import app.jobs.builtin
 from fastapi import FastAPI
 
 from app.api import jobs
