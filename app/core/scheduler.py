@@ -20,20 +20,6 @@ class SchedulerManager:
         safe_log("Scheduler started")
 
     def add_job(self, job, func, **kwargs):
-        """Add a job to the scheduler (interval-only)."""
-        if job.status != JobStatus.ACTIVE:
-            safe_log(f"Job {job.id} not active, skipping scheduling")
-            return
-
-        job_id_str = str(job.id)
-
-        # Remove existing job if it exists
-        existing_job = self.scheduler.get_job(job_id_str)
-        if existing_job:
-            safe_log(
-                f"Job {job_id_str} already exists. Removing old job before scheduling."
-            )
-            self.scheduler.remove_job(job_id_str)
 
         self.scheduler.add_job(
             func=func,
@@ -49,11 +35,24 @@ class SchedulerManager:
 
         jobs = db_session.query(Job).filter(Job.status == JobStatus.ACTIVE).all()
         for job in jobs:
+            self.remove_existing_job(job)
             self.add_job(
                 job,
                 func=dummy_number_crunch,
                 kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
             )
+    
+    def remove_existing_job(self, job):
+        job_id_str = str(job.id)
+
+        # Remove existing job if it exists
+        existing_job = self.scheduler.get_job(job_id_str)
+        if existing_job:
+            safe_log(
+                f"Job {job_id_str} already exists. Removing old job before scheduling."
+            )
+            self.scheduler.remove_job(job_id_str)
+
 
 
 # Singleton instance for global use

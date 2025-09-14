@@ -12,13 +12,6 @@ class JobCreate(BaseModel):
     job_metadata: Optional[Dict] = {}
     status: Optional[JobStatus] = JobStatus.ACTIVE
 
-# Full replace → status required
-class JobReplace(BaseModel):
-    name: str
-    interval_seconds: int
-    job_metadata: Optional[Dict] = {}
-    status: JobStatus  # required
-
 # Partial update → all optional
 class JobUpdate(BaseModel):
     name: Optional[str] = None

@@ -8,7 +8,7 @@ from app.core.jobs import dummy_number_crunch
 from app.core.logger import logger, safe_log
 from app.core.scheduler import scheduler_manager
 from app.models.job import Job, JobStatus
-from app.schemas.job import JobCreate, JobReplace, JobUpdate
+from app.schemas.job import JobCreate, JobUpdate
 
 router = APIRouter()
 
@@ -58,12 +58,16 @@ def create_job(job_in: JobCreate, db: Session = Depends(get_db)):
     db.refresh(job)
 
     # Schedule the job
-    scheduler_manager.add_job(
-        job=job,
-        func=dummy_number_crunch,
-        kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
-    )
-    safe_log(f"Job {job.id} created and scheduled")
+    if job.status == JobStatus.ACTIVE:
+        scheduler_manager.add_job(
+            job=job,
+            func=dummy_number_crunch,
+            kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
+        )
+        safe_log(f"Job {job.id} created and scheduled")
+    else:
+        safe_log(f"Job {job.id} not active, skipping scheduling of job")
+
     return job
 
 
@@ -73,7 +77,7 @@ def create_job(job_in: JobCreate, db: Session = Depends(get_db)):
     description="Completely replace a job definition. "
                 "All fields must be provided. Missing fields will be reset."
 )
-def replace_job(job_id: str, job_in: JobReplace, db: Session = Depends(get_db)):
+def replace_job(job_id: str, job_in: JobCreate, db: Session = Depends(get_db)):
     try:
         job_uuid = uuid.UUID(job_id)
     except ValueError:
@@ -90,17 +94,19 @@ def replace_job(job_id: str, job_in: JobReplace, db: Session = Depends(get_db)):
     job.status = job_in.status
     db.commit()
 
+    scheduler_manager.remove_existing_job(job)
+
     # Reschedule only if active
+    # Schedule the job
     if job.status == JobStatus.ACTIVE:
         scheduler_manager.add_job(
             job=job,
             func=dummy_number_crunch,
             kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
         )
+        safe_log(f"Job {job.id} replaced and scheduled")
     else:
-        # Remove if exists
-        if scheduler_manager.scheduler.get_job(str(job.id)):
-            scheduler_manager.scheduler.remove_job(str(job.id))
+        safe_log(f"Job {job.id} not active, skipping scheduling of replaced job")
     return job
 
 
@@ -130,18 +136,20 @@ def patch_job(job_id: str, job_in: JobUpdate, db: Session = Depends(get_db)):
     if job_in.status is not None:
         job.status = job_in.status
     db.commit()
+    
+    scheduler_manager.remove_existing_job(job)
 
     # Reschedule if active
+    # Schedule the job
     if job.status == JobStatus.ACTIVE:
         scheduler_manager.add_job(
             job=job,
             func=dummy_number_crunch,
             kwargs={"job_id": str(job.id), "job_metadata": job.job_metadata},
         )
+        safe_log(f"Job {job.id} updated and scheduled")
     else:
-        # Remove from scheduler if not active
-        if scheduler_manager.scheduler.get_job(str(job.id)):
-            scheduler_manager.scheduler.remove_job(str(job.id))
+        safe_log(f"Job {job.id} not active, skipping scheduling of updated job")
 
     return job
 
@@ -173,11 +181,8 @@ def delete_job(
     job = db.query(Job).filter(Job.id == job_uuid).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-
-    # Remove from scheduler if exists
-    job_id_str = str(job.id)
-    if scheduler_manager.scheduler.get_job(job_id_str):
-        scheduler_manager.scheduler.remove_job(job_id_str)
+    
+    scheduler_manager.remove_existing_job(job)
 
     # Remove from DB
     db.delete(job)
@@ -209,9 +214,7 @@ def delete_all_jobs(
     for job in jobs:
         job_id_str = str(job.id)
 
-        # Remove from scheduler if it exists
-        if scheduler_manager.scheduler.get_job(job_id_str):
-            scheduler_manager.scheduler.remove_job(job_id_str)
+        scheduler_manager.remove_existing_job(job)
 
         # Remove from DB
         db.delete(job)
