@@ -1,9 +1,10 @@
+import logging
 import traceback
 import uuid
 from datetime import datetime, timezone
 
 from app.core.database import SessionLocal
-from app.core.logger import logger, safe_log
+from app.core.logger import safe_log
 from app.jobs.registry import register_job
 from app.models.job import Job, JobStatus
 

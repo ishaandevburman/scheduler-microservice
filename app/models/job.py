@@ -72,7 +72,7 @@ class Job(Base):
 
         if self.interval_seconds:
             return now + timedelta(seconds=self.interval_seconds)
-        elif self.cron_expression:
+        if self.cron_expression:
             try:
                 trigger = CronTrigger.from_crontab(self.cron_expression, timezone=timezone.utc)
                 return trigger.get_next_fire_time(previous_fire_time=now, now=now)

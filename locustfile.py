@@ -17,7 +17,8 @@ class SchedulerUser(HttpUser):
         job_name = f"Job-{uuid.uuid4().hex[:8]}"
         payload = {
             "name": job_name,
-            "interval_seconds": random.randint(1, 10),
+            "cron_expression":"*/5 * * * *",
+            "function_name":"dummy_number_crunch",
             "job_metadata": {"multiplier": random.randint(1, 1000), "text": f"Hello {job_name}"},
             "status": "active"
         }

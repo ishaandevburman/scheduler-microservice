@@ -212,4 +212,4 @@ def delete_all_jobs(confirm: bool = Query(False), db: Session = Depends(get_db))
     deleted_count = db.query(Job).delete()
     db.commit()
     safe_log(f"All jobs deleted (including paused ones). Total: {deleted_count}")
-    return {"message": f"All jobs deleted successfully", "deleted_count": deleted_count}
+    return {"message": "All jobs deleted successfully", "deleted_count": deleted_count}

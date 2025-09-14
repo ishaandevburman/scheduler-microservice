@@ -17,5 +17,3 @@ app = FastAPI(title="Interval Scheduler Microservice", version="0.1.0")
 
 # Include routes
 app.include_router(jobs.router)
-
-
